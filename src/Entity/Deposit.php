@@ -18,7 +18,7 @@ class Deposit
     private $id;
 
     /**
-     * @ORM\Column(type="decimal", precision=2, scale=2)
+     * @ORM\Column(type="decimal", precision=4, scale=2)
      */
     private $interest_rate;
 
@@ -36,6 +36,14 @@ class Deposit
      * @ORM\OneToOne(targetEntity=BankAccount::class, inversedBy="deposit", cascade={"persist", "remove"})
      */
     private $account;
+
+    /**
+     * Deposit constructor.
+     */
+    public function __construct()
+    {
+        $this->date_open = new \DateTime();
+    }
 
     public function getId(): ?int
     {
