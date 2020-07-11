@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Entity\BankAccount;
+use App\Entity\BankAccountLog;
 use App\Entity\Client;
 use App\Entity\Deposit;
 use App\Entity\DepositReplenishmentLog;
@@ -29,7 +30,7 @@ class DepositService
     }
 
     /**
-     * This method create: client, bank account, deposit, deposit replenishment log.
+     * This method create: client, bank account, bank account log, deposit, deposit replenishment log.
      * @param array $data
      * @throws \Exception
      */
@@ -55,6 +56,12 @@ class DepositService
         $deposit = new Deposit();
         $deposit->setInterestRate($data['interest_rate'])
             ->setAccount($bankAccount);
+        //Create bank account log
+        $bankAccountLog = new BankAccountLog();
+        $bankAccountLog->setBalanceChange($data['balance'])
+            ->setDateOps($deposit->getDateOpen())
+            ->setTypeOps('deposit_replenishment')
+            ->setBankAccount($bankAccount);
         //Create deposit replenishment log
         $replenishmentLog = new DepositReplenishmentLog();
         $replenishmentLog->setDate($deposit->getDateOpen())
@@ -65,6 +72,7 @@ class DepositService
         $this->em->persist($client);
         $this->em->persist($bankAccount);
         $this->em->persist($deposit);
+        $this->em->persist($bankAccountLog);
         $this->em->persist($replenishmentLog);
 
         try {
