@@ -2,14 +2,14 @@
 
 namespace App\Entity;
 
-use App\Repository\DepositHistoryRepository;
+use App\Repository\DepositInterestChargeLogRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * @ORM\Entity(repositoryClass=DepositHistoryRepository::class)
- * @ORM\Table(name="deposit_history")
+ * @ORM\Entity(repositoryClass=DepositInterestChargeLogRepository::class)
+ * @ORM\Table(name="deposit_interest_charge_log")
  */
-class DepositHistory
+class DepositInterestChargeLog
 {
     /**
      * @ORM\Id()
@@ -19,14 +19,14 @@ class DepositHistory
     private $id;
 
     /**
-     * @ORM\Column(type="decimal", precision=4, scale=2)
-     */
-    private $interest_rate;
-
-    /**
      * @ORM\Column(type="datetime")
      */
-    private $date_change;
+    private $date;
+
+    /**
+     * @ORM\Column(type="float")
+     */
+    private $sum;
 
     /**
      * @ORM\ManyToOne(targetEntity=Deposit::class)
@@ -39,26 +39,26 @@ class DepositHistory
         return $this->id;
     }
 
-    public function getInterestRate(): ?string
+    public function getDate(): ?\DateTimeInterface
     {
-        return $this->interest_rate;
+        return $this->date;
     }
 
-    public function setInterestRate(string $interest_rate): self
+    public function setDate(\DateTimeInterface $date): self
     {
-        $this->interest_rate = $interest_rate;
+        $this->date = $date;
 
         return $this;
     }
 
-    public function getDateChange(): ?\DateTimeInterface
+    public function getSum(): ?float
     {
-        return $this->date_change;
+        return $this->sum;
     }
 
-    public function setDateChange(\DateTimeInterface $date_change): self
+    public function setSum(float $sum): self
     {
-        $this->date_change = $date_change;
+        $this->sum = $sum;
 
         return $this;
     }
