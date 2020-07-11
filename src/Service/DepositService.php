@@ -6,6 +6,7 @@ use App\Entity\BankAccount;
 use App\Entity\BankAccountLog;
 use App\Entity\Client;
 use App\Entity\Deposit;
+use App\Entity\DepositInterestChargeLog;
 use App\Entity\DepositReplenishmentLog;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -111,5 +112,46 @@ class DepositService
     public function generateInterestRate():float
     {
         return (float)mt_rand(100, 3000) / 100;
+    }
+
+    /**
+     * Make interest on a deposit for a certain date
+     * @param Deposit $deposit
+     * @param \DateTime $date
+     * @throws \Exception
+     */
+    public function makeInterestDeposit(Deposit $deposit, \DateTime $date): void
+    {
+        try {
+            //Get bank account(not proxy).
+            $bankAccount = $this->em->find('App:BankAccount', $deposit->getAccount()->getId());
+            $interestSum = $bankAccount->getBalance() * ((float)$deposit->getInterestRate() / 100);
+            //$interestSum = round($interestSum, 2);//Probably in a real bank
+            //Bank account update balance
+            $bankAccount->setBalance($bankAccount->getBalance() + $interestSum);
+
+            //Create bank account log
+            $bankAccountLog = new BankAccountLog();
+            $bankAccountLog->setBalanceChange($interestSum)
+                ->setDateOps($date)
+                ->setTypeOps('deposit_interest_charge')
+                ->setBankAccount($bankAccount);
+
+            //Create deposit interest charge log
+            $depositInterestChargeLog = new DepositInterestChargeLog();
+            $depositInterestChargeLog->setDate($date)
+                ->setSum($interestSum)
+                ->setDeposit($deposit);
+
+            //Prepare object to insert
+            $this->em->persist($bankAccountLog);
+            $this->em->persist($depositInterestChargeLog);
+            $this->em->persist($bankAccount);
+
+            //Insert to db
+            $this->em->flush();
+        } catch (\Exception $e) {
+            throw $e;
+        }
     }
 }
