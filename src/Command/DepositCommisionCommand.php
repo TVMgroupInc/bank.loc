@@ -2,17 +2,21 @@
 
 namespace App\Command;
 
+use App\Entity\BankAccountLog;
+use App\Entity\DepositCommissionLog;
+use App\Entity\DepositInterestChargeLog;
 use App\Service\DepositService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
-class DepositInterestChargeCommand extends Command
+class DepositCommisionCommand extends Command
 {
-    protected static $defaultName = 'app:deposit-interest-charge';
+    protected static $defaultName = 'app:deposit-commision';
     /**
      * @var EntityManagerInterface
      */
@@ -23,7 +27,7 @@ class DepositInterestChargeCommand extends Command
     private $depositService;
 
     /**
-     * DepositInterestChargeCommand constructor.
+     * DepositCommisionCommand constructor.
      * @param EntityManagerInterface $em
      * @param DepositService $depositService
      */
@@ -39,7 +43,7 @@ class DepositInterestChargeCommand extends Command
     protected function configure()
     {
         $this
-            ->setDescription('This command checks whether you need to accrue interest on the deposit on this day.')
+            ->setDescription('This command is responsible for withdrawing deposit commissions.')
             ->addOption(
                 'date',
                 null,
@@ -53,7 +57,6 @@ class DepositInterestChargeCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-
         $dateOption = $input->getOption('date');
         $dateOps = new \DateTime();
 
@@ -62,8 +65,13 @@ class DepositInterestChargeCommand extends Command
             $dateOps = \DateTime::createFromFormat('Y-m-d', $dateOption);
         }
 
+        if (empty($dateOption) && $dateOps->format('d') != 1) {
+            $io->error("Today is not the first day!");
+            return 0;
+        }
+
         try {
-            $depositsOps = $this->em->getRepository('App:Deposit')->getDepositByDateForInterestCharge($dateOps);
+            $depositsOps = $this->em->getRepository('App:Deposit')->getDepositForCommision($dateOps);
         } catch (\Exception $e) {
             $io->error(sprintf('Exception [%i]: %s', $e->getCode(), $e->getMessage()));
 
@@ -78,8 +86,8 @@ class DepositInterestChargeCommand extends Command
 
         foreach ($depositsOps as $dKey => $deposit) {
             try {
-                $this->depositService->makeInterestDeposit($deposit, $dateOps);
-                $io->success("Interest on deposit id: {$deposit->getId()} calculated successfully");
+                $this->depositService->makeCommissionDeposit($deposit, $dateOps);
+                $io->success("Commision on deposit id: {$deposit->getId()} calculated successfully");
             } catch (\Exception $e) {
                 $io->error(sprintf('Exception [%i]: %s', $e->getCode(), $e->getMessage()));
                 $depositErr[] = $deposit;

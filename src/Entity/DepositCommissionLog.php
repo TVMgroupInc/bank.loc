@@ -29,7 +29,7 @@ class DepositCommissionLog
     private $sum;
 
     /**
-     * @ORM\Column(type="smallint", length=1, options={"unsigned"=true})
+     * @ORM\Column(type="decimal", precision=3, scale=2)
      */
     private $percent;
 
@@ -68,12 +68,12 @@ class DepositCommissionLog
         return $this;
     }
 
-    public function getPercent(): ?int
+    public function getPercent(): ?string
     {
         return $this->percent;
     }
 
-    public function setPercent(int $percent): self
+    public function setPercent(string $percent): self
     {
         $this->percent = $percent;
 
