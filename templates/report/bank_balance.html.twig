@@ -1,0 +1,25 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Hello ReportController!{% endblock %}
+
+{% block body %}
+    {% if bankBalanceResRows is defined and bankBalanceResRows is not empty and bankBalanceResRows is iterable %}
+        <h1>Убыток или прибыль банка по месяцам. (Сумма комиссий - Сумма начисленных процентов)</h1>
+        <table border="1">
+            <thead>
+            <tr>
+                <th>YEAR-MONTH</th>
+                <th>Balance</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for item in bankBalanceResRows %}
+                <tr>
+                    <td>{{ item.year_month_period }}</td>
+                    <td>{{ item.bank_balance }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+{% endblock %}

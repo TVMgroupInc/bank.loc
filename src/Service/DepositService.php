@@ -10,6 +10,8 @@ use App\Entity\DepositCommissionLog;
 use App\Entity\DepositInterestChargeLog;
 use App\Entity\DepositReplenishmentLog;
 use App\Exception\BankAccount\BankAccountNegativeBalanceException;
+use App\Exception\Deposit\DepositCommissionAlreadyException;
+use App\Exception\Deposit\DepositInterestAlreadyException;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -101,6 +103,10 @@ class DepositService
             if ($bankAccount->getBalance() <= 0) {
                 throw new BankAccountNegativeBalanceException('Negative or zero account balance detected');
             }
+
+            if (!$this->checkMakeInterestDeposit($deposit->getId(), $dateOps)) {
+                throw new DepositInterestAlreadyException('This month, interest has been accrued on the deposit');
+            }
             $interestSum = $bankAccount->getBalance() * ((float)$deposit->getInterestRate() / 100);
             //$interestSum = round($interestSum, 2);//Probably in a real bank
             //Bank account update balance
@@ -132,6 +138,26 @@ class DepositService
     }
 
     /**
+     * Checking whether the deposit needs to accrue interest
+     * @param \DateTimeInterface $dateOps
+     * @param int|null $depositId
+     * @return bool
+     * @throws \Exception
+     */
+    private function checkMakeInterestDeposit(int $depositId, \DateTimeInterface $dateOps): bool
+    {
+        try {
+            $depositInfo = $this->em->getRepository('App:Deposit')
+                ->getDepositByDateForInterestCharge($dateOps, $depositId);
+        } catch (\Exception $e) {
+            throw $e;
+        }
+
+        return !empty($depositInfo);
+    }
+
+
+    /**
      * Make commision on a deposit for a certain date
      * @param Deposit $deposit
      * @param \DateTimeInterface $dateOps
@@ -145,6 +171,15 @@ class DepositService
 
             if ($bankAccount->getBalance() <= 0) {
                 throw new BankAccountNegativeBalanceException('Negative or zero account balance detected');
+            }
+
+            //Making the commission the first number month
+            if ($dateOps->format('d') != 1) {
+                $dateOps->modify('first day of this month');
+            }
+
+            if (!$this->checkMakeCommissionDeposit($deposit->getId(), $dateOps)) {
+                throw new DepositCommissionAlreadyException('This month, the withdrawal of the commission was already');
             }
             //Commision sum and percent
             $commision = $this->commissionCalc($bankAccount->getBalance(), $deposit->getDateOpen(), $dateOps);
@@ -176,6 +211,24 @@ class DepositService
         } catch (\Exception $e) {
             throw $e;
         }
+    }
+
+    /**
+     * Checking whether the deposit needs to commission
+     * @param int $depositId
+     * @param \DateTimeInterface $dateOps
+     * @return bool
+     * @throws \Exception
+     */
+    private function checkMakeCommissionDeposit(int $depositId, \DateTimeInterface $dateOps): bool
+    {
+        try {
+            $depositInfo = $this->em->getRepository('App:Deposit')->getDepositForCommision($dateOps, $depositId);
+        } catch (\Exception $e) {
+            throw $e;
+        }
+
+        return !empty($depositInfo);
     }
 
     /**

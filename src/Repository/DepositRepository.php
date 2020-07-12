@@ -51,24 +51,25 @@ class DepositRepository extends ServiceEntityRepository
     */
 
     /**
-     * Get deposits that need to be processed today
-     * @param \DateTime $date
+     * Get deposits that need a interest charge
+     * @param \DateTimeInterface $dateOps
+     * @param int|null $depositId
      * @return array|null
      * @throws \Exception
      */
-    public function getDepositByDateForInterestCharge(\DateTime $date): ?array
+    public function getDepositByDateForInterestCharge(\DateTimeInterface $dateOps, int $depositId = null): ?array
     {
         //Count day in month
-        $numDayMonth = cal_days_in_month(CAL_GREGORIAN, $date->format('m'), $date->format('Y'));
-        $curDay = [$date->format('d')];
+        $numDayMonth = cal_days_in_month(CAL_GREGORIAN, $dateOps->format('m'), $dateOps->format('Y'));
+        $curDay = [$dateOps->format('d')];
 
         //Validate of last day in month.
         //If 30 add 31 to arr.
-        if ($date->format('d') == $numDayMonth && $numDayMonth == 30) {
+        if ($dateOps->format('d') == $numDayMonth && $numDayMonth == 30) {
             $curDay[] = 31;
         }
         //If February and last day(28 or 29) add 30 and 31
-        if ($date->format('d') == $numDayMonth && $date->format('m') == 2) {
+        if ($dateOps->format('d') == $numDayMonth && $dateOps->format('m') == 2) {
             $curDay[] = 30;
             $curDay[] = 31;
         }
@@ -89,14 +90,24 @@ class DepositRepository extends ServiceEntityRepository
                 $qbDeposit->expr()->isNull('dicl.id')
             )
         );
+
+        //If need check by deposit id
+        if (!empty($depositId)) {
+            $qbDeposit->andWhere($qbDeposit->expr()->eq('d.id', ':deposit_id'));
+            $qbDeposit->setParameter('deposit_id', $depositId);
+        }
         $qbDeposit->setParameter('cur_day', $curDay);
-        $qbDeposit->setParameter('midnight_cur_day', $date->format('Y-m-d 00:00:00'));
+        $qbDeposit->setParameter('midnight_cur_day', $dateOps->format('Y-m-d 00:00:00'));
         /* SQL Analog
-        SELECT d.id AS deposit_id, bank_account.id AS bank_account_id, d.interest_rate
+        SELECT *
         FROM deposit d
-        INNER JOIN bank_account ON d.account_id = bank_account.id
-        LEFT JOIN deposit_interest_charge_log dicl ON dicl.deposit_id = d.id AND dicl.date >= :midnight_cur_day
-        WHERE d.date_close IS NULL AND DAY(d.date_open) IN (:cur_day) AND d.date_open < :midnight_cur_day AND dicl.id IS NULL*/
+            INNER JOIN bank_account ON d.account_id = bank_account.id
+            LEFT JOIN deposit_interest_charge_log dicl ON dicl.deposit_id = d.id AND dicl.date >= :midnight_cur_day
+        WHERE d.date_close IS NULL
+            AND DAY(d.date_open) IN (:cur_day)
+            AND d.date_open < :midnight_cur_day
+            AND dicl.id IS NULL
+            AND d.id = :deposit_id(optional)*/
 
         try {
             $depositsOps = $qbDeposit->getQuery()->getResult();
@@ -107,7 +118,13 @@ class DepositRepository extends ServiceEntityRepository
         return $depositsOps;
     }
 
-    public function getDepositForCommision($date)
+    /**
+     * Get deposits that need a commission
+     * @param \DateTimeInterface $dateOps
+     * @return array|null
+     * @throws \Exception
+     */
+    public function getDepositForCommision(\DateTimeInterface $dateOps, int $depositId = null): ?array
     {
         $qbDeposit = $this->createQueryBuilder('d');
         $qbDeposit->leftJoin(
@@ -123,12 +140,21 @@ class DepositRepository extends ServiceEntityRepository
                 $qbDeposit->expr()->isNull('dcl.id')
             )
         );
-        $qbDeposit->setParameter('midnight_cur_day', $date->format('Y-m-01 00:00:00'));
+
+        //If need check by deposit id
+        if (!empty($depositId)) {
+            $qbDeposit->andWhere($qbDeposit->expr()->eq('d.id', ':deposit_id'));
+            $qbDeposit->setParameter('deposit_id', $depositId);
+        }
+        $qbDeposit->setParameter('midnight_cur_day', $dateOps->format('Y-m-01 00:00:00'));
         /* SQL Analog
         SELECT *
         FROM db_bank.deposit d
-        LEFT JOIN db_bank.deposit_commission_log dcl ON dcl.deposit_id = d.id AND dcl.date >= :midnight_cur_day
-        WHERE d.date_close IS NULL AND d.date_open < :midnight_cur_day AND dcl.id IS NULL  */
+            LEFT JOIN db_bank.deposit_commission_log dcl ON dcl.deposit_id = d.id AND dcl.date >= :midnight_cur_day
+        WHERE d.date_close IS NULL
+            AND d.date_open < :midnight_cur_day
+            AND dcl.id IS NULL
+            AND d.id = :deposit_id(optional) */
 
         try {
             $depositsOps = $qbDeposit->getQuery()->getResult();

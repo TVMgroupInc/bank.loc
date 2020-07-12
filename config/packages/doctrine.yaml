@@ -19,3 +19,6 @@ doctrine:
         dql:
             string_functions:
                 DAY: DoctrineExtensions\Query\Mysql\Day
+                MONTH: DoctrineExtensions\Query\Mysql\Month
+                YEAR: DoctrineExtensions\Query\Mysql\Year
+                DATE_FORMAT: DoctrineExtensions\Query\Mysql\DateFormat
