@@ -96,7 +96,7 @@ class DepositRepository extends ServiceEntityRepository
         FROM deposit d
         INNER JOIN bank_account ON d.account_id = bank_account.id
         LEFT JOIN deposit_interest_charge_log dicl ON dicl.deposit_id = d.id AND dicl.date >= :midnight_cur_day
-        WHERE DAY(d.date_open) IN (:cur_day) AND d.date_open < :midnight_cur_day AND dicl.id IS NULL*/
+        WHERE d.date_close IS NULL AND DAY(d.date_open) IN (:cur_day) AND d.date_open < :midnight_cur_day AND dicl.id IS NULL*/
 
         try {
             $depositsOps = $qbDeposit->getQuery()->getResult();

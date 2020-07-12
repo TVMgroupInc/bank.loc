@@ -2,19 +2,15 @@
 
 namespace App\Command;
 
-use App\Entity\BankAccountLog;
-use App\Entity\DepositCommissionLog;
-use App\Entity\DepositInterestChargeLog;
 use App\Service\DepositService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
-class DepositCommisionCommand extends Command
+class DepositCommissionCommand extends Command
 {
     protected static $defaultName = 'app:deposit-commision';
     /**
@@ -27,7 +23,7 @@ class DepositCommisionCommand extends Command
     private $depositService;
 
     /**
-     * DepositCommisionCommand constructor.
+     * DepositCommissionCommand constructor.
      * @param EntityManagerInterface $em
      * @param DepositService $depositService
      */
@@ -51,6 +47,13 @@ class DepositCommisionCommand extends Command
                 'Enter the date for which you want to make operations. Format Y-m-d',
                 null
             )
+            ->addOption(
+                'ignore_first_day',
+                null,
+                InputOption::VALUE_OPTIONAL,
+                'A flag that allows operations not only on the 1st',
+                false
+            )
         ;
     }
 
@@ -65,7 +68,7 @@ class DepositCommisionCommand extends Command
             $dateOps = \DateTime::createFromFormat('Y-m-d', $dateOption);
         }
 
-        if (empty($dateOption) && $dateOps->format('d') != 1) {
+        if ($input->getOption('ignore_first_day') === false && $dateOps->format('d') != 1) {
             $io->error("Today is not the first day!");
             return 0;
         }
@@ -79,7 +82,7 @@ class DepositCommisionCommand extends Command
         }
 
         if (empty($depositsOps)) {
-            $io->success('No tasks to complete operations');
+            $io->writeln('No tasks to complete operations');
 
             return 0;
         }
@@ -99,7 +102,6 @@ class DepositCommisionCommand extends Command
         if (!empty($depositErr)) {
             $io->warning(var_export($depositErr));
         }
-        $io->success("All operations completed successfully.");
 
         return 0;
     }
