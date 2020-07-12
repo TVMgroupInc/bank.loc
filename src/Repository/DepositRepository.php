@@ -6,6 +6,7 @@ use App\Entity\Deposit;
 use App\Entity\DepositCommissionLog;
 use App\Entity\DepositInterestChargeLog;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\DBALException;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -163,5 +164,41 @@ class DepositRepository extends ServiceEntityRepository
         }
 
         return $depositsOps;
+    }
+
+    /**
+     * Average deposit amount (Amount of deposits / Number of deposits) for age groups
+     * @param int $ageFrom
+     * @param int|null $ageTo
+     * @return string|null
+     * @throws DBALException
+     */
+    public function getAvgSumDepositForAgeGroup(int $ageFrom, int $ageTo = null): ?string
+    {
+        $conn = $this->getEntityManager()->getConnection();
+        $ageFrom = (new \DateTime())->modify("- {$ageFrom} year")->format('Y-m-d');
+
+        $sql = '
+        SELECT ROUND(SUM(ba.balance) / COUNT(d.id), 2) AS avg_amount
+        FROM db_bank.client c
+            INNER JOIN db_bank.bank_account ba ON c.id = ba.client_id
+            INNER JOIN db_bank.deposit d ON ba.id = d.account_id
+        WHERE c.date_of_birth <= :ageFrom;
+        ';
+        $execute = ['ageFrom' => $ageFrom];
+
+        if (!empty($ageTo)) {
+            $sql.= ' AND c.date_of_birth > :ageTo';
+            $execute['ageTo'] = (new \DateTime())->modify("- {$ageTo} year")->format('Y-m-d');
+        }
+        $stmt = $conn->prepare($sql);
+
+        try {
+            $stmt->execute($execute);
+        } catch (DBALException $e) {
+            throw $e;
+        }
+
+        return $stmt->fetchColumn();
     }
 }

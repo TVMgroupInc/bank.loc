@@ -1,0 +1,25 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Hello ReportController!{% endblock %}
+
+{% block body %}
+    {% if avgSumResRows is defined and avgSumResRows is not empty and avgSumResRows is iterable %}
+        <h1>Средняя сумма депозита (Сумма депозитов/Количество депозитов) для возрастных групп:</h1>
+        <table border="1">
+            <thead>
+            <tr>
+                <th>GROUP</th>
+                <th>AVG Sum deposit</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for key, item in avgSumResRows %}
+                <tr>
+                    <td>{{ key }}</td>
+                    <td>{{ item }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+{% endblock %}

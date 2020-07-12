@@ -51,6 +51,7 @@ class BankAccountLogRepository extends ServiceEntityRepository
     */
 
     /**
+     * Monthly loss or profit of the bank. (Amount of commissions - Amount of accrued interest)
      * @param int|null $month
      * @param int|null $year
      * @return array|null
