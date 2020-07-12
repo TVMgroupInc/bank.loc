@@ -17,7 +17,10 @@
             <li>Your template at <code><a href="{{ '/var/www/bank.loc/templates/base/index.html.twig'|file_link(0) }}">templates/base/index.html.twig</a></code></li>
         </ul>
     </div>
-    <a href="{{ path('deposit_new') }}">Create Deposit Case</a>
-    <a href="{{ path('report_bank_balance') }}">Monthly loss or profit of the bank.</a>
-    <a href="{{ path('report_avg_sum_deposit') }}">Average deposit amount</a>
+    <ul>
+        <li><a href="{{ path('deposit_new') }}">Create Deposit Case</a></li>
+        <li><a href="{{ path('deposit_add') }}">Add Deposit to Client</a></li>
+        <li><a href="{{ path('report_bank_balance') }}">Monthly loss or profit of the bank.</a></li>
+        <li><a href="{{ path('report_avg_sum_deposit') }}">Average deposit amount</a></li>
+    </ul>
 {% endblock %}

@@ -188,6 +188,7 @@ class DepositRepository extends ServiceEntityRepository
         $execute = ['ageFrom' => $ageFrom];
 
         if (!empty($ageTo)) {
+            //People who have not yet turned 25 for example, but this year they will be 25
             $sql.= ' AND c.date_of_birth > :ageTo';
             $execute['ageTo'] = (new \DateTime())->modify("- {$ageTo} year")->format('Y-m-d');
         }

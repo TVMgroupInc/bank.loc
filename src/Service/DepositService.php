@@ -301,4 +301,54 @@ class DepositService
             'percent' => $cmmssnPercent
         ];
     }
+
+    /**
+     * Add deposit to exist client
+     * @param array $data
+     * @throws \Exception
+     */
+    public function addDepositClient(array $data): void
+    {
+        if (empty($data)) {
+            return;
+        }
+        //Get client(not proxy)
+        $client = $this->em->find('App:Client', $data['client']->getId());
+
+        //Create bank account. Fill bank account fields.
+        $bankAccount = new BankAccount();
+        $bankAccount->setCurrency($data['currency'])
+            ->setBalance($data['balance'])
+            ->setIban($data['iban'])
+            ->setClient($client);
+        //Create deposit. Fill deposit fields.
+        $deposit = new Deposit();
+        $deposit->setInterestRate($data['interest_rate'])
+            ->setAccount($bankAccount);
+        //Create bank account log
+        $bankAccountLog = new BankAccountLog();
+        $bankAccountLog->setBalanceChange($data['balance'])
+            ->setDateOps($deposit->getDateOpen())
+            ->setTypeOps('deposit_replenishment')
+            ->setBankAccount($bankAccount);
+        //Create deposit replenishment log
+        $replenishmentLog = new DepositReplenishmentLog();
+        $replenishmentLog->setDate($deposit->getDateOpen())
+            ->setSum($data['balance'])
+            ->setDeposit($deposit);
+
+        //Prepare objects to insert db
+        $this->em->persist($client);
+        $this->em->persist($bankAccount);
+        $this->em->persist($deposit);
+        $this->em->persist($bankAccountLog);
+        $this->em->persist($replenishmentLog);
+
+        try {
+            //insert to db
+            $this->em->flush();
+        } catch (\Exception $e) {
+            throw $e;
+        }
+    }
 }
