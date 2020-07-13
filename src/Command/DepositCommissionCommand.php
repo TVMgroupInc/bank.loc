@@ -70,6 +70,7 @@ class DepositCommissionCommand extends Command
 
         if ($input->getOption('ignore_first_day') === false && $dateOps->format('d') != 1) {
             $io->error("Today is not the first day!");
+
             return 0;
         }
 
@@ -93,14 +94,14 @@ class DepositCommissionCommand extends Command
                 $io->success("Commision on deposit id: {$deposit->getId()} calculated successfully");
             } catch (\Exception $e) {
                 $io->error(sprintf('Exception [%i]: %s', $e->getCode(), $e->getMessage()));
-                $depositErr[] = $deposit;
+                $depositErr[] = $deposit->getId();
                 continue;
             }
         }
 
         //If there are unsuccessful attempts. Need to write to the log or send to mail
         if (!empty($depositErr)) {
-            $io->warning(var_export($depositErr));
+            $io->warning($depositErr);
         }
 
         return 0;
