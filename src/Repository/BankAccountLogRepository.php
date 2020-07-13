@@ -90,7 +90,7 @@ class BankAccountLogRepository extends ServiceEntityRepository
 
         $sql = '
         SELECT DATE_FORMAT(bal.date_ops, "%Y-%m") AS year_month_period, SUM(bal.balance_change) * -1 bank_balance
-        FROM db_bank.bank_account_log bal
+        FROM bank_account_log bal
         WHERE bal.type_ops IN (\'deposit_interest_charge\', \'deposit_commision\')
         ';
 

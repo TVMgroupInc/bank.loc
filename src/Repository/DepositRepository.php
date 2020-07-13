@@ -181,9 +181,9 @@ class DepositRepository extends ServiceEntityRepository
         $sql = '
         SELECT ROUND(SUM(ba.balance) / COUNT(d.id), 2) AS avg_amount
         FROM db_bank.client c
-            INNER JOIN db_bank.bank_account ba ON c.id = ba.client_id
-            INNER JOIN db_bank.deposit d ON ba.id = d.account_id
-        WHERE c.date_of_birth <= :ageFrom;
+            INNER JOIN bank_account ba ON c.id = ba.client_id
+            INNER JOIN deposit d ON ba.id = d.account_id
+        WHERE c.date_of_birth <= :ageFrom
         ';
         $execute = ['ageFrom' => $ageFrom];
 
@@ -192,6 +192,72 @@ class DepositRepository extends ServiceEntityRepository
             $sql.= ' AND c.date_of_birth > :ageTo';
             $execute['ageTo'] = (new \DateTime())->modify("- {$ageTo} year")->format('Y-m-d');
         }
+        $stmt = $conn->prepare($sql);
+
+        try {
+            $stmt->execute($execute);
+        } catch (DBALException $e) {
+            throw $e;
+        }
+
+        return $stmt->fetchColumn();
+    }
+
+    /**
+     * The difference between the number of operations and the number of operations required to accrue interest
+     * @param \DateTimeInterface $dateOps
+     * @param int $depositId
+     * @return array|null
+     * @throws DBALException
+     */
+    public function getCountOpsInterestOnDeposit(int $depositId, \DateTimeInterface $dateOps): ?string
+    {
+        $conn = $this->getEntityManager()->getConnection();
+
+        $sql = '
+        SELECT COUNT(dicl.id) - TIMESTAMPDIFF(MONTH, d.date_open, :date_ops) count_ops
+        FROM deposit d
+            LEFT JOIN deposit_interest_charge_log dicl ON d.id = dicl.deposit_id
+        WHERE d.date_close IS NULL AND d.id = :deposit_id
+        GROUP BY dicl.deposit_id;
+        ';
+        $execute = [
+            'date_ops' => $dateOps->format('Y-m-d'),
+            'deposit_id' => $depositId
+        ];
+        $stmt = $conn->prepare($sql);
+
+        try {
+            $stmt->execute($execute);
+        } catch (DBALException $e) {
+            throw $e;
+        }
+
+        return $stmt->fetchColumn();
+    }
+
+    /**
+     * The difference between the number of operations and the number of operations required to remove a commission
+     * @param int $depositId
+     * @param \DateTimeInterface $dateOps
+     * @return string|null
+     * @throws DBALException
+     */
+    public function getCountOpsCommisionOnDeposit(int $depositId, \DateTimeInterface $dateOps): ?string
+    {
+        $conn = $this->getEntityManager()->getConnection();
+
+        $sql = '
+        SELECT COUNT(dcl.id) - TIMESTAMPDIFF(MONTH, d.date_open, :date_ops) count_ops
+        FROM deposit d
+            LEFT JOIN deposit_commission_log dcl ON d.id = dcl.deposit_id
+        WHERE d.date_close IS NULL AND d.id = :deposit_id
+        GROUP BY dcl.deposit_id;
+        ';
+        $execute = [
+            'date_ops' => $dateOps->format('Y-m-d'),
+            'deposit_id' => $depositId
+        ];
         $stmt = $conn->prepare($sql);
 
         try {

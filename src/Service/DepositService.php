@@ -11,6 +11,7 @@ use App\Entity\DepositInterestChargeLog;
 use App\Entity\DepositReplenishmentLog;
 use App\Exception\BankAccount\BankAccountNegativeBalanceException;
 use App\Exception\Deposit\DepositCommissionAlreadyException;
+use App\Exception\Deposit\DepositCountOpsException;
 use App\Exception\Deposit\DepositInterestAlreadyException;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -89,6 +90,56 @@ class DepositService
     }
 
     /**
+     * Add deposit to exist client
+     * @param array $data
+     * @throws \Exception
+     */
+    public function addDepositClient(array $data): void
+    {
+        if (empty($data)) {
+            return;
+        }
+        //Get client(not proxy)
+        $client = $this->em->find('App:Client', $data['client']->getId());
+
+        //Create bank account. Fill bank account fields.
+        $bankAccount = new BankAccount();
+        $bankAccount->setCurrency($data['currency'])
+            ->setBalance($data['balance'])
+            ->setIban($data['iban'])
+            ->setClient($client);
+        //Create deposit. Fill deposit fields.
+        $deposit = new Deposit();
+        $deposit->setInterestRate($data['interest_rate'])
+            ->setAccount($bankAccount);
+        //Create bank account log
+        $bankAccountLog = new BankAccountLog();
+        $bankAccountLog->setBalanceChange($data['balance'])
+            ->setDateOps($deposit->getDateOpen())
+            ->setTypeOps('deposit_replenishment')
+            ->setBankAccount($bankAccount);
+        //Create deposit replenishment log
+        $replenishmentLog = new DepositReplenishmentLog();
+        $replenishmentLog->setDate($deposit->getDateOpen())
+            ->setSum($data['balance'])
+            ->setDeposit($deposit);
+
+        //Prepare objects to insert db
+        $this->em->persist($client);
+        $this->em->persist($bankAccount);
+        $this->em->persist($deposit);
+        $this->em->persist($bankAccountLog);
+        $this->em->persist($replenishmentLog);
+
+        try {
+            //insert to db
+            $this->em->flush();
+        } catch (\Exception $e) {
+            throw $e;
+        }
+    }
+
+    /**
      * Make interest on a deposit for a certain date
      * @param Deposit $deposit
      * @param \DateTime $date
@@ -106,6 +157,10 @@ class DepositService
 
             if (!$this->checkMakeInterestDeposit($deposit->getId(), $dateOps)) {
                 throw new DepositInterestAlreadyException('This month, interest has been accrued on the deposit');
+            }
+
+            if ($this->checkCountInterestOnDeposit($deposit->getId(), $dateOps) != 0) {
+                throw new DepositCountOpsException('The number of ops for calc interest does not match the desired');
             }
             $interestSum = $bankAccount->getBalance() * ((float)$deposit->getInterestRate() / 100);
             //$interestSum = round($interestSum, 2);//Probably in a real bank
@@ -156,6 +211,24 @@ class DepositService
         return !empty($depositInfo);
     }
 
+    /**
+     * The number of deposit operations. Before starting a new one, there should be 0.
+     * The difference in the number of current operations and the difference between the creation date and today's date
+     * @param int $depositId
+     * @param \DateTimeInterface $dateOps
+     * @return int|null
+     * @throws \Exception
+     */
+    private function checkCountInterestOnDeposit(int $depositId, \DateTimeInterface $dateOps): ?int
+    {
+        try {
+            $depositInfo = $this->em->getRepository('App:Deposit')->getCountOpsInterestOnDeposit($depositId, $dateOps);
+        } catch (\Exception $e) {
+            throw $e;
+        }
+
+        return !empty($depositInfo) ? (int)$depositId : null;
+    }
 
     /**
      * Make commision on a deposit for a certain date
@@ -180,6 +253,10 @@ class DepositService
 
             if (!$this->checkMakeCommissionDeposit($deposit->getId(), $dateOps)) {
                 throw new DepositCommissionAlreadyException('This month, the withdrawal of the commission was already');
+            }
+
+            if ($this->checkCountCommissionOnDeposit($deposit->getId(), $dateOps) != 0) {
+                throw new DepositCountOpsException('The number of ops for calc commission does not match the desired');
             }
             //Commision sum and percent
             $commision = $this->commissionCalc($bankAccount->getBalance(), $deposit->getDateOpen(), $dateOps);
@@ -232,30 +309,22 @@ class DepositService
     }
 
     /**
-     * Pseudo generate IBAN
-     * @return string
+     * The number of deposit operations. Before starting a new one, there should be 0.
+     * The difference in the number of current operations and the difference between the creation date and today's date
+     * @param int $depositId
+     * @param \DateTimeInterface $dateOps
+     * @return int|null
      * @throws \Exception
      */
-    public function generateIBAN(): string
+    private function checkCountCommissionOnDeposit(int $depositId, \DateTimeInterface $dateOps): ?int
     {
         try {
-            $ibanPt1 = md5(((new \DateTime())->getTimestamp()) . uniqid(rand(), true)  . rand(0, 1000000));
-            $ibanPt2 = bin2hex(random_bytes(22));
-            $ibanPt3 = base64_encode(openssl_random_pseudo_bytes(32));
+            $depositInfo = $this->em->getRepository('App:Deposit')->getCountOpsCommisionOnDeposit($depositId, $dateOps);
         } catch (\Exception $e) {
             throw $e;
         }
-        
-        return substr($ibanPt1 . $ibanPt2 . $ibanPt3, 0, 34);
-    }
 
-    /**
-     * Pseudo generate Interest Rate
-     * @return float
-     */
-    public function generateInterestRate():float
-    {
-        return (float)mt_rand(100, 3000) / 100;
+        return !empty($depositInfo) ? (int)$depositId : null;
     }
 
     /**
@@ -303,52 +372,30 @@ class DepositService
     }
 
     /**
-     * Add deposit to exist client
-     * @param array $data
+     * Pseudo generate IBAN
+     * @return string
      * @throws \Exception
      */
-    public function addDepositClient(array $data): void
+    public function generateIBAN(): string
     {
-        if (empty($data)) {
-            return;
-        }
-        //Get client(not proxy)
-        $client = $this->em->find('App:Client', $data['client']->getId());
-
-        //Create bank account. Fill bank account fields.
-        $bankAccount = new BankAccount();
-        $bankAccount->setCurrency($data['currency'])
-            ->setBalance($data['balance'])
-            ->setIban($data['iban'])
-            ->setClient($client);
-        //Create deposit. Fill deposit fields.
-        $deposit = new Deposit();
-        $deposit->setInterestRate($data['interest_rate'])
-            ->setAccount($bankAccount);
-        //Create bank account log
-        $bankAccountLog = new BankAccountLog();
-        $bankAccountLog->setBalanceChange($data['balance'])
-            ->setDateOps($deposit->getDateOpen())
-            ->setTypeOps('deposit_replenishment')
-            ->setBankAccount($bankAccount);
-        //Create deposit replenishment log
-        $replenishmentLog = new DepositReplenishmentLog();
-        $replenishmentLog->setDate($deposit->getDateOpen())
-            ->setSum($data['balance'])
-            ->setDeposit($deposit);
-
-        //Prepare objects to insert db
-        $this->em->persist($client);
-        $this->em->persist($bankAccount);
-        $this->em->persist($deposit);
-        $this->em->persist($bankAccountLog);
-        $this->em->persist($replenishmentLog);
-
         try {
-            //insert to db
-            $this->em->flush();
+            $ibanPt1 = md5(((new \DateTime())->getTimestamp()) . uniqid(rand(), true)  . rand(0, 1000000));
+            $ibanPt2 = bin2hex(random_bytes(22));
+            $ibanPt3 = base64_encode(openssl_random_pseudo_bytes(32));
         } catch (\Exception $e) {
             throw $e;
         }
+        
+        return substr($ibanPt1 . $ibanPt2 . $ibanPt3, 0, 34);
     }
+
+    /**
+     * Pseudo generate Interest Rate
+     * @return float
+     */
+    public function generateInterestRate():float
+    {
+        return (float)mt_rand(100, 3000) / 100;
+    }
+
 }
